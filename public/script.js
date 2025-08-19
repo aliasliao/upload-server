@@ -4,6 +4,7 @@ let currentUploads = new Map();
 // DOM元素
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
+const selectBtn = document.getElementById('selectBtn');
 const uploadProgress = document.getElementById('uploadProgress');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
@@ -25,7 +26,12 @@ function setupEventListeners() {
     uploadArea.addEventListener('dragover', handleDragOver);
     uploadArea.addEventListener('dragleave', handleDragLeave);
     uploadArea.addEventListener('drop', handleDrop);
-    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    // 点击上传区域触发文件选择（排除按钮区域）
+    uploadArea.addEventListener('click', handleUploadAreaClick);
+    
+    // 选择文件按钮点击事件
+    selectBtn.addEventListener('click', () => fileInput.click());
 
     // 文件选择
     fileInput.addEventListener('change', handleFileSelect);
@@ -52,6 +58,17 @@ function handleDrop(e) {
     if (files.length > 0) {
         uploadFiles(files);
     }
+}
+
+// 处理上传区域点击
+function handleUploadAreaClick(e) {
+    // 如果点击的是按钮，不触发文件选择
+    if (e.target.closest('.select-btn')) {
+        return;
+    }
+    
+    // 触发文件选择
+    fileInput.click();
 }
 
 // 处理文件选择
@@ -169,7 +186,6 @@ async function loadServerInfo() {
             <div class="info">
                 <div>端口: ${data.port}</div>
                 <div>内网地址: ${data.localIPs.join(', ')}</div>
-                <div>上传目录: ${data.uploadDir}</div>
             </div>
         `;
         
