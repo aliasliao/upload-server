@@ -70,23 +70,35 @@ const upload = multer({
 
 // 自定义上传进度中间件
 const uploadWithProgress = (req, res, next) => {
-    console.log(`🚀 开始上传文件: ${req.headers['content-length'] ? (req.headers['content-length'] / (1024 * 1024)).toFixed(2) + ' MB' : '未知大小'}`);
+    const contentLength = parseInt(req.headers['content-length']);
+    const totalSize = contentLength || 0;
+    const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+    
+    console.log(`🚀 开始上传文件: ${totalSizeMB} MB`);
     
     const startTime = Date.now();
+    let receivedBytes = 0;
     let lastLogTime = startTime;
     
     req.on('data', (chunk) => {
+        receivedBytes += chunk.length;
         const currentTime = Date.now();
+        
         if (currentTime - lastLogTime > 1000) { // 每秒记录一次进度
             const elapsed = (currentTime - startTime) / 1000;
-            console.log(`⏳ 上传进行中... (已用时: ${elapsed.toFixed(1)}s)`);
+            const receivedMB = (receivedBytes / (1024 * 1024)).toFixed(2);
+            const progress = totalSize > 0 ? Math.round((receivedBytes / totalSize) * 100) : 0;
+            const speed = (receivedBytes / (1024 * 1024) / elapsed).toFixed(2);
+            
+            console.log(`⏳ 上传进度: ${progress}% (${receivedMB}/${totalSizeMB} MB) - 速度: ${speed} MB/s`);
             lastLogTime = currentTime;
         }
     });
     
     req.on('end', () => {
         const totalTime = (Date.now() - startTime) / 1000;
-        console.log(`✅ 文件接收完成 (总用时: ${totalTime.toFixed(1)}s)`);
+        const avgSpeed = (receivedBytes / (1024 * 1024) / totalTime).toFixed(2);
+        console.log(`✅ 文件接收完成: ${(receivedBytes / (1024 * 1024)).toFixed(2)} MB (总用时: ${totalTime.toFixed(1)}s, 平均速度: ${avgSpeed} MB/s)`);
     });
     
     next();
@@ -108,11 +120,14 @@ app.post('/upload', uploadWithProgress, upload.single('file'), (req, res) => {
 
         const fileSize = req.file.size;
         const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
+        const timestamp = new Date().toLocaleString('zh-CN');
         
-        console.log(`📁 文件上传成功: ${req.file.originalname}`);
-        console.log(`   📄 保存为: ${req.file.filename}`);
-        console.log(`   📏 文件大小: ${fileSizeMB} MB (${fileSize} bytes)`);
+        console.log(`📁 文件上传成功 [${timestamp}]`);
+        console.log(`   📄 原始文件名: ${req.file.originalname}`);
+        console.log(`   💾 保存文件名: ${req.file.filename}`);
+        console.log(`   📏 文件大小: ${fileSizeMB} MB (${fileSize.toLocaleString()} bytes)`);
         console.log(`   📂 保存路径: ${req.file.path}`);
+        console.log(`   🆔 MIME类型: ${req.file.mimetype}`);
         
         res.json({
             success: true,
