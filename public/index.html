@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件上传服务器</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-cloud-upload-alt"></i> 文件上传服务器</h1>
+            <div class="server-info" id="serverInfo">
+                <span class="loading">正在获取服务器信息...</span>
+            </div>
+        </header>
+
+        <main class="main">
+            <!-- 上传区域 -->
+            <section class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <h3>拖拽文件到此处上传</h3>
+                        <p>或者点击选择文件</p>
+                        <input type="file" id="fileInput" multiple style="display: none;">
+                        <button class="select-btn" onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-folder-open"></i> 选择文件
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 上传进度 -->
+                <div class="upload-progress" id="uploadProgress" style="display: none;">
+                    <h4>上传进度</h4>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <span class="progress-text" id="progressText">0%</span>
+                    </div>
+                    <div class="upload-status" id="uploadStatus"></div>
+                </div>
+            </section>
+
+            <!-- 文件列表 -->
+            <section class="files-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-folder"></i> 已上传文件</h2>
+                    <button class="refresh-btn" onclick="loadFiles()">
+                        <i class="fas fa-sync-alt"></i> 刷新
+                    </button>
+                </div>
+                <div class="files-container" id="filesContainer">
+                    <div class="loading">正在加载文件列表...</div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 通知 -->
+        <div class="notification" id="notification"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 
