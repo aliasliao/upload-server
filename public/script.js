@@ -113,35 +113,59 @@ async function uploadSingleFile(file, currentIndex, totalFiles) {
         updateUploadStatus(`正在上传 ${file.name} (${currentIndex}/${totalFiles})`);
         
         const xhr = new XMLHttpRequest();
-        let serverUploadId = null;
+        let startTime = Date.now();
+        let lastProgressUpdate = 0;
         
-        // 监听上传进度
+        // 监听上传开始
+        xhr.upload.addEventListener('loadstart', () => {
+            console.log(`🚀 开始上传: ${file.name}`);
+            startTime = Date.now();
+            lastProgressUpdate = startTime;
+        });
+        
+        // 监听上传进度 - 这是真实的上传进度
         xhr.upload.addEventListener('progress', (e) => {
             if (e.lengthComputable) {
+                const currentTime = Date.now();
                 const progress = Math.round((e.loaded / e.total) * 100);
-                currentUploads.get(uploadId).progress = progress;
-                updateProgress(progress);
-                
-                // 显示前端进度
                 const receivedMB = (e.loaded / (1024 * 1024)).toFixed(2);
                 const totalMB = (e.total / (1024 * 1024)).toFixed(2);
-                updateUploadStatus(`正在上传 ${file.name} (${currentIndex}/${totalFiles})`);
+                const elapsed = (currentTime - startTime) / 1000;
+                
+                // 计算上传速度
+                let speed = '0.00';
+                if (elapsed > 0) {
+                    speed = (e.loaded / (1024 * 1024) / elapsed).toFixed(2);
+                }
+                
+                // 更新进度条和详细信息
+                updateProgress(progress);
                 updateUploadDetails(receivedMB, totalMB, progress);
+                updateUploadStatus(`正在上传 ${file.name} (${currentIndex}/${totalFiles}) - ${progress}% (${receivedMB}/${totalMB} MB) - 速度: ${speed} MB/s`);
+                
+                // 每500ms在控制台输出一次详细进度
+                if (currentTime - lastProgressUpdate > 500) {
+                    console.log(`📊 真实上传进度 - ${file.name}: ${progress}% (${receivedMB}/${totalMB} MB) - 速度: ${speed} MB/s - 已用时: ${elapsed.toFixed(1)}s`);
+                    lastProgressUpdate = currentTime;
+                }
+                
+                currentUploads.get(uploadId).progress = progress;
             }
         });
         
         // 监听上传完成
         xhr.addEventListener('load', () => {
+            const totalTime = (Date.now() - startTime) / 1000;
+            
             if (xhr.status === 200) {
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
-                    serverUploadId = response.uploadId;
-                    updateUploadStatus(`✅ ${file.name} 上传成功`);
+                    updateUploadStatus(`✅ ${file.name} 上传成功 - 总用时: ${totalTime.toFixed(1)}s`);
                     showNotification(`${file.name} 上传成功`, 'success');
                     
-                    // 获取服务器端的详细进度信息
-                    if (serverUploadId) {
-                        getServerProgress(serverUploadId, file.name);
+                    // 显示服务器端的最终统计信息
+                    if (response.finalProgress) {
+                        console.log(`📁 服务器端统计 - ${file.name}: ${response.finalProgress.receivedMB} MB, 平均速度: ${response.finalProgress.speed} MB/s`);
                     }
                 } else {
                     updateUploadStatus(`❌ ${file.name} 上传失败: ${response.message}`);
@@ -168,6 +192,19 @@ async function uploadSingleFile(file, currentIndex, totalFiles) {
         updateUploadStatus(`❌ ${file.name} 上传失败: ${error.message}`);
         showNotification(`${file.name} 上传失败: ${error.message}`, 'error');
         currentUploads.delete(uploadId);
+    }
+}
+
+// 从服务器进度更新UI
+function updateProgressFromServer(progress, fileName) {
+    if (progress) {
+        updateProgress(progress.progress);
+        updateUploadDetails(progress.receivedMB, progress.totalMB, progress.progress);
+        updateUploadStatus(`正在上传 ${fileName} - ${progress.progress}% (${progress.receivedMB}/${progress.totalMB} MB) - 速度: ${progress.speed} MB/s`);
+        
+        if (progress.status === 'completed') {
+            updateUploadStatus(`✅ ${fileName} 上传完成 - 总用时: ${progress.elapsed}s, 平均速度: ${progress.speed} MB/s`);
+        }
     }
 }
 
