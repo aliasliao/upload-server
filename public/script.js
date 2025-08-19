@@ -93,11 +93,8 @@ async function uploadFiles(files) {
         await uploadSingleFile(file, i + 1, files.length);
     }
     
-    // 上传完成后刷新文件列表
     setTimeout(() => {
-        hideUploadProgress();
         loadFiles();
-        showNotification('所有文件上传完成！', 'success');
     }, 1000);
 }
 
@@ -160,13 +157,14 @@ async function uploadSingleFile(file, currentIndex, totalFiles) {
             if (xhr.status === 200) {
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
+                    updateProgress(100); // 确保进度条显示100%
                     updateUploadStatus(`✅ ${file.name} 上传成功 - 总用时: ${totalTime.toFixed(1)}s`);
                     showNotification(`${file.name} 上传成功`, 'success');
                     
-                    // 显示服务器端的最终统计信息
-                    if (response.finalProgress) {
-                        console.log(`📁 服务器端统计 - ${file.name}: ${response.finalProgress.receivedMB} MB, 平均速度: ${response.finalProgress.speed} MB/s`);
-                    }
+                    // 显示"上传完成"状态，保持进度条可见
+                    setTimeout(() => {
+                        updateUploadStatus(`✅ 上传完成！点击右上角 × 关闭此窗口`);
+                    }, 1000);
                 } else {
                     updateUploadStatus(`❌ ${file.name} 上传失败: ${response.message}`);
                     showNotification(`${file.name} 上传失败: ${response.message}`, 'error');
@@ -240,6 +238,9 @@ function showUploadProgress() {
 function hideUploadProgress() {
     uploadProgress.style.display = 'none';
     uploadDetails.style.display = 'none';
+    // 重置进度条状态
+    updateProgress(0);
+    updateUploadStatus('');
 }
 
 // 更新进度条
