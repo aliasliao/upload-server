@@ -9,6 +9,11 @@ const uploadProgress = document.getElementById('uploadProgress');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const uploadStatus = document.getElementById('uploadStatus');
+const uploadDetails = document.getElementById('uploadDetails');
+const uploadedSize = document.getElementById('uploadedSize');
+const totalSize = document.getElementById('totalSize');
+const uploadSpeed = document.getElementById('uploadSpeed');
+const elapsedTime = document.getElementById('elapsedTime');
 const filesContainer = document.getElementById('filesContainer');
 const serverInfo = document.getElementById('serverInfo');
 const notification = document.getElementById('notification');
@@ -108,6 +113,7 @@ async function uploadSingleFile(file, currentIndex, totalFiles) {
         updateUploadStatus(`正在上传 ${file.name} (${currentIndex}/${totalFiles})`);
         
         const xhr = new XMLHttpRequest();
+        let serverUploadId = null;
         
         // 监听上传进度
         xhr.upload.addEventListener('progress', (e) => {
@@ -115,6 +121,12 @@ async function uploadSingleFile(file, currentIndex, totalFiles) {
                 const progress = Math.round((e.loaded / e.total) * 100);
                 currentUploads.get(uploadId).progress = progress;
                 updateProgress(progress);
+                
+                // 显示前端进度
+                const receivedMB = (e.loaded / (1024 * 1024)).toFixed(2);
+                const totalMB = (e.total / (1024 * 1024)).toFixed(2);
+                updateUploadStatus(`正在上传 ${file.name} (${currentIndex}/${totalFiles})`);
+                updateUploadDetails(receivedMB, totalMB, progress);
             }
         });
         
@@ -123,8 +135,14 @@ async function uploadSingleFile(file, currentIndex, totalFiles) {
             if (xhr.status === 200) {
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
+                    serverUploadId = response.uploadId;
                     updateUploadStatus(`✅ ${file.name} 上传成功`);
                     showNotification(`${file.name} 上传成功`, 'success');
+                    
+                    // 获取服务器端的详细进度信息
+                    if (serverUploadId) {
+                        getServerProgress(serverUploadId, file.name);
+                    }
                 } else {
                     updateUploadStatus(`❌ ${file.name} 上传失败: ${response.message}`);
                     showNotification(`${file.name} 上传失败: ${response.message}`, 'error');
@@ -153,16 +171,38 @@ async function uploadSingleFile(file, currentIndex, totalFiles) {
     }
 }
 
+// 获取服务器端上传进度
+async function getServerProgress(uploadId, fileName) {
+    try {
+        const response = await fetch(`/upload-progress/${uploadId}`);
+        const data = await response.json();
+        
+        if (data.success && data.progress) {
+            const progress = data.progress;
+            console.log(`📊 服务器端进度 - ${fileName}: ${progress.progress}% (${progress.receivedMB}/${progress.totalMB} MB) - 速度: ${progress.speed} MB/s`);
+            
+            if (progress.status === 'completed') {
+                updateUploadStatus(`✅ ${fileName} 上传完成 - 总用时: ${progress.elapsed}s, 平均速度: ${progress.speed} MB/s`);
+            }
+        }
+    } catch (error) {
+        console.error('获取服务器进度失败:', error);
+    }
+}
+
 // 显示上传进度
 function showUploadProgress() {
     uploadProgress.style.display = 'block';
+    uploadDetails.style.display = 'none';
     updateProgress(0);
     updateUploadStatus('准备上传...');
+    window.uploadStartTime = null;
 }
 
 // 隐藏上传进度
 function hideUploadProgress() {
     uploadProgress.style.display = 'none';
+    uploadDetails.style.display = 'none';
 }
 
 // 更新进度条
@@ -174,6 +214,25 @@ function updateProgress(percent) {
 // 更新上传状态
 function updateUploadStatus(message) {
     uploadStatus.textContent = message;
+}
+
+// 更新上传详细信息
+function updateUploadDetails(receivedMB, totalMB, progress) {
+    uploadedSize.textContent = receivedMB + ' MB';
+    totalSize.textContent = totalMB + ' MB';
+    uploadDetails.style.display = 'grid';
+    
+    // 计算上传速度（简化版本）
+    const currentTime = Date.now();
+    if (!window.uploadStartTime) {
+        window.uploadStartTime = currentTime;
+    }
+    
+    const elapsed = (currentTime - window.uploadStartTime) / 1000;
+    const speed = elapsed > 0 ? (parseFloat(receivedMB) / elapsed).toFixed(2) : '0.00';
+    
+    uploadSpeed.textContent = speed + ' MB/s';
+    elapsedTime.textContent = elapsed.toFixed(1) + 's';
 }
 
 // 加载服务器信息

@@ -68,6 +68,9 @@ const upload = multer({
     }
 });
 
+// 存储上传进度的全局变量
+const uploadProgress = new Map();
+
 // 自定义上传进度中间件
 const uploadWithProgress = (req, res, next) => {
     const contentLength = parseInt(req.headers['content-length']);
@@ -80,17 +83,43 @@ const uploadWithProgress = (req, res, next) => {
     let receivedBytes = 0;
     let lastLogTime = startTime;
     
+    // 生成上传ID
+    const uploadId = Date.now() + Math.random();
+    uploadProgress.set(uploadId, {
+        progress: 0,
+        received: 0,
+        total: totalSize,
+        receivedMB: '0.00',
+        totalMB: totalSizeMB,
+        speed: '0.00',
+        elapsed: '0.0',
+        status: 'uploading'
+    });
+    
     req.on('data', (chunk) => {
         receivedBytes += chunk.length;
         const currentTime = Date.now();
         
-        if (currentTime - lastLogTime > 1000) { // 每秒记录一次进度
+        if (currentTime - lastLogTime > 500) { // 每500ms记录一次进度
             const elapsed = (currentTime - startTime) / 1000;
             const receivedMB = (receivedBytes / (1024 * 1024)).toFixed(2);
             const progress = totalSize > 0 ? Math.round((receivedBytes / totalSize) * 100) : 0;
             const speed = (receivedBytes / (1024 * 1024) / elapsed).toFixed(2);
             
             console.log(`⏳ 上传进度: ${progress}% (${receivedMB}/${totalSizeMB} MB) - 速度: ${speed} MB/s`);
+            
+            // 更新进度信息
+            uploadProgress.set(uploadId, {
+                progress: progress,
+                received: receivedBytes,
+                total: totalSize,
+                receivedMB: receivedMB,
+                totalMB: totalSizeMB,
+                speed: speed,
+                elapsed: elapsed.toFixed(1),
+                status: 'uploading'
+            });
+            
             lastLogTime = currentTime;
         }
     });
@@ -99,13 +128,50 @@ const uploadWithProgress = (req, res, next) => {
         const totalTime = (Date.now() - startTime) / 1000;
         const avgSpeed = (receivedBytes / (1024 * 1024) / totalTime).toFixed(2);
         console.log(`✅ 文件接收完成: ${(receivedBytes / (1024 * 1024)).toFixed(2)} MB (总用时: ${totalTime.toFixed(1)}s, 平均速度: ${avgSpeed} MB/s)`);
+        
+        // 更新为完成状态
+        uploadProgress.set(uploadId, {
+            progress: 100,
+            received: receivedBytes,
+            total: totalSize,
+            receivedMB: (receivedBytes / (1024 * 1024)).toFixed(2),
+            totalMB: totalSizeMB,
+            speed: avgSpeed,
+            elapsed: totalTime.toFixed(1),
+            status: 'completed'
+        });
+        
+        // 5秒后清理进度信息
+        setTimeout(() => {
+            uploadProgress.delete(uploadId);
+        }, 5000);
     });
     
+    // 将uploadId添加到请求对象中
+    req.uploadId = uploadId;
     next();
 };
 
 // 静态文件服务
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 获取上传进度接口
+app.get('/upload-progress/:uploadId', (req, res) => {
+    const uploadId = req.params.uploadId;
+    const progress = uploadProgress.get(uploadId);
+    
+    if (progress) {
+        res.json({
+            success: true,
+            progress: progress
+        });
+    } else {
+        res.json({
+            success: false,
+            message: '未找到上传进度信息'
+        });
+    }
+});
 
 // 文件上传接口
 app.post('/upload', uploadWithProgress, upload.single('file'), (req, res) => {
@@ -135,7 +201,8 @@ app.post('/upload', uploadWithProgress, upload.single('file'), (req, res) => {
             filename: req.file.filename,
             originalName: req.file.originalname,
             size: req.file.size,
-            path: req.file.path
+            path: req.file.path,
+            uploadId: req.uploadId
         });
     } catch (error) {
         console.error('❌ 文件上传错误:', error);

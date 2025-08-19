@@ -121,6 +121,35 @@ body {
     transition: width 0.3s ease;
 }
 
+.upload-details {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.detail-value {
+    font-weight: bold;
+    color: #667eea;
+    font-size: 0.9rem;
+}
+
 .section-header {
     display: flex;
     justify-content: space-between;
